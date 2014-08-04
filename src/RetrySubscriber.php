@@ -62,10 +62,10 @@ class RetrySubscriber implements SubscriberInterface
         $this->filter = $config['filter'];
         $this->delayFn = isset($config['delay'])
             ? $config['delay']
-            : [__CLASS__, 'exponentialDelay'];
+            : array(__CLASS__, 'exponentialDelay');
         $this->sleepFn = isset($config['sleep'])
             ? $config['sleep']
-            : [__CLASS__, 'defaultSleep'];
+            : array(__CLASS__, 'defaultSleep');
         $this->maxRetries = isset($config['max'])
             ? $config['max']
             : 5;
@@ -73,12 +73,12 @@ class RetrySubscriber implements SubscriberInterface
 
     public function getEvents()
     {
-        return [
+        return array(
             // Fire before responses are verified (e.g., HttpError).
-            'complete' => ['onComplete', RequestEvents::VERIFY_RESPONSE + 100],
+            'complete' => array('onComplete', RequestEvents::VERIFY_RESPONSE + 100),
             // Fire soon after logging, history, and other early events.
-            'error'    => ['onComplete', RequestEvents::EARLY - 100]
-        ];
+            'error'    => array('onComplete', RequestEvents::EARLY - 100)
+		);
     }
 
     public function onComplete(AbstractTransferEvent $event)
@@ -103,7 +103,7 @@ class RetrySubscriber implements SubscriberInterface
     /**
      * Default sleep implementation.
      */
-    public static function defaultSleep($time, AbstractTransferEvent $event)
+    public static function defaultSleep($time, /** @noinspection PhpUnusedParameterInspection */ AbstractTransferEvent $event)
     {
         usleep($time * 1000);
     }
@@ -118,7 +118,8 @@ class RetrySubscriber implements SubscriberInterface
      */
     public static function exponentialDelay(
         $retries,
-        AbstractTransferEvent $event
+		/** @noinspection PhpUnusedParameterInspection */
+		AbstractTransferEvent $event
     ) {
         return (int) pow(2, $retries - 1);
     }
@@ -153,10 +154,10 @@ class RetrySubscriber implements SubscriberInterface
                 $event->getRequest(),
                 $event->getResponse(),
                 $event instanceof ErrorEvent ? $event->getException() : null,
-                [
+				array(
                     'retries' => $retries + 1,
                     'delay'   => $delay
-                ] + $event->getTransferInfo()
+				) + $event->getTransferInfo()
             ));
             return $delay;
         };
@@ -170,12 +171,13 @@ class RetrySubscriber implements SubscriberInterface
      * @return callable
      */
     public static function createStatusFilter(
-        array $failureStatuses = [500, 503]
+        array $failureStatuses = array(500, 503)
     ) {
         // Convert the array of values into a set for hash lookups
         $failureStatuses = array_fill_keys($failureStatuses, true);
 
-        return function (
+		/** @noinspection PhpUnusedParameterInspection */
+		return function (
             $retries,
             AbstractTransferEvent $event
         ) use ($failureStatuses) {
@@ -199,13 +201,14 @@ class RetrySubscriber implements SubscriberInterface
      */
     public static function createIdempotentFilter()
     {
-        static $retry = ['GET' => true, 'HEAD' => true, 'PUT' => true,
-            'DELETE' => true, 'OPTIONS' => true, 'TRACE' => true];
+        static $retry = array('GET' => true, 'HEAD' => true, 'PUT' => true,
+            'DELETE' => true, 'OPTIONS' => true, 'TRACE' => true);
 
-        return function ($retries, AbstractTransferEvent $e) use ($retry) {
+		/** @noinspection PhpUnusedParameterInspection */
+		return function ($retries, AbstractTransferEvent $e) use ($retry) {
             return isset($retry[$e->getRequest()->getMethod()])
-                ? self::DEFER
-                : self::BREAK_CHAIN;
+                ? RetrySubscriber::DEFER
+                : RetrySubscriber::BREAK_CHAIN;
         };
     }
 
@@ -218,15 +221,16 @@ class RetrySubscriber implements SubscriberInterface
      */
     public static function createCurlFilter($errorCodes = null)
     {
-        $errorCodes = $errorCodes ?: [CURLE_COULDNT_RESOLVE_HOST,
+        $errorCodes = $errorCodes ?: array(CURLE_COULDNT_RESOLVE_HOST,
             CURLE_COULDNT_CONNECT, CURLE_PARTIAL_FILE, CURLE_WRITE_ERROR,
             CURLE_READ_ERROR, CURLE_OPERATION_TIMEOUTED,
             CURLE_SSL_CONNECT_ERROR, CURLE_HTTP_PORT_FAILED, CURLE_GOT_NOTHING,
-            CURLE_SEND_ERROR, CURLE_RECV_ERROR];
+            CURLE_SEND_ERROR, CURLE_RECV_ERROR);
 
         $errorCodes = array_fill_keys($errorCodes, 1);
 
-        return function (
+		/** @noinspection PhpUnusedParameterInspection */
+		return function (
             $retries,
             AbstractTransferEvent $event
         ) use ($errorCodes) {
@@ -256,9 +260,9 @@ class RetrySubscriber implements SubscriberInterface
         ) use ($filters) {
             foreach ($filters as $filter) {
                 $result = $filter($retries, $event);
-                if ($result === self::RETRY) {
+                if ($result === RetrySubscriber::RETRY) {
                     return true;
-                } elseif ($result === self::BREAK_CHAIN) {
+                } elseif ($result === RetrySubscriber::BREAK_CHAIN) {
                     return false;
                 }
             }
