@@ -91,10 +91,10 @@ class RetrySubscriber implements SubscriberInterface
         }
 
         $filterFn = $this->filter;
-        if ($filterFn($retries, $event)) {
+        if (call_user_func_array($filterFn, array($retries, $event))) {
             $delayFn = $this->delayFn;
             $sleepFn = $this->sleepFn;
-            $sleepFn($delayFn($retries, $event), $event);
+            call_user_func_array($sleepFn, array(call_user_func_array($delayFn, array($retries, $event)), $event));
             $request->getConfig()->set('retries', ++$retries);
             $event->intercept($event->getClient()->send($request));
         }
@@ -135,7 +135,7 @@ class RetrySubscriber implements SubscriberInterface
      * @return callable
      */
     public static function createLoggingDelay(
-        callable $delayFn,
+        $delayFn,
         LoggerInterface $logger,
         $formatter = null
     ) {
@@ -149,7 +149,7 @@ class RetrySubscriber implements SubscriberInterface
             $retries,
             AbstractTransferEvent $event
         ) use ($delayFn, $logger, $formatter) {
-            $delay = $delayFn($retries, $event);
+            $delay = call_user_func_array($delayFn, array($retries, $event));
             $logger->log(LogLevel::NOTICE, $formatter->format(
                 $event->getRequest(),
                 $event->getResponse(),
@@ -259,7 +259,7 @@ class RetrySubscriber implements SubscriberInterface
             AbstractTransferEvent $event
         ) use ($filters) {
             foreach ($filters as $filter) {
-                $result = $filter($retries, $event);
+                $result = call_user_func_array($filter, array($retries, $event));
                 if ($result === RetrySubscriber::RETRY) {
                     return true;
                 } elseif ($result === RetrySubscriber::BREAK_CHAIN) {
